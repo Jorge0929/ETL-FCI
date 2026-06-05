@@ -20,5 +20,5 @@ def request_with_backoff(fn, max_retries=5):
             if intento == max_retries-1:
                 raise 
             wait_time = (2 ** intento)+random.uniform(0,1)
-            print(f"Intento {intento+1}/5 falló: {e}. Reintentando en {wait_time}s")
+            print(f"Intento {intento+1}/{max_retries} falló: {e}. Reintentando en {wait_time}s")
             time.sleep(wait_time)
