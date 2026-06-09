@@ -6,6 +6,11 @@ from datetime import datetime
 # Importar la clase ZohoAuth de mi archivo auth
 from auth import ZohoAuth
 
+#Configurar el logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',)
+
+#Obtener el nombre de mi archivo
+logger = logging.getLogger(__name__)  
 
 #Funcion que aumenta el tiempo de espera que cada falla una llamada a la API
 def request_with_backoff(fn, max_retries=5):
@@ -20,5 +25,5 @@ def request_with_backoff(fn, max_retries=5):
             if intento == max_retries-1:
                 raise 
             wait_time = (2 ** intento)+random.uniform(0,1)
-            print(f"Intento {intento+1}/{max_retries} falló: {e}. Reintentando en {wait_time}s")
+            logger.warning(f"Intento {intento+1}/{max_retries} falló: {e}. Reintentando en {wait_time:.2f}s...")
             time.sleep(wait_time)
