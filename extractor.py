@@ -14,7 +14,23 @@ logger = logging.getLogger(__name__)
 
 #Funcion que aumenta el tiempo de espera que cada falla una llamada a la API
 def request_with_backoff(fn, max_retries=5):
-    #Intentar 5 veces
+    """
+    Ejecuta fn() con reintentos usando backoff exponencial y jitter.
+
+    Args:
+        fn: Callable sin argumentos. Ejemplo:
+            request_with_backoff(lambda: requests.get(url, headers=h))
+        max_retries: Número máximo de intentos (default: 5).
+            Con 5 intentos la espera máxima es ~17 segundos.
+
+    Returns:
+        El resultado de fn() cuando tiene éxito.
+
+    Raises:
+        La excepción original de fn() si se agotan todos los reintentos.
+    """
+
+    #Intentar varias veces
     for intento in range(max_retries):
         #Si funciona retornar el resultado
         try:
