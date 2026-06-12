@@ -72,7 +72,7 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     "per_page": per_page
     }
 
-    headers = auth.get_header()
+    headers = auth.renew_token()
 
     if since is not None:
         parametros["sort_by"] = "Modified_Time"
@@ -116,7 +116,7 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     elif response.status_code == 401:
         if _retried:
             raise Exception(f"401 persistente en {module_name} — verificá credenciales en .env")
-        auth.renew_token()
+        auth.get_access_token()
         return fetch_page(auth, module_name, fields, page, per_page, since, _retried=True)
 
     # Rate limit excedido — espera Retry-After (o 60s por defecto) y deja que request_with_backoff reintente
@@ -132,3 +132,31 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     else:
         logger.warning(f"{response.status_code} en {module_name} — reintentando con backoff")
         raise Exception(f"HTTP {response.status_code} en {module_name}")
+
+def extract_module(auth, module_name, fields, since=None):
+    """
+    Extrae TODOS los registros de un módulo de Zoho con paginación.
+
+    Args:
+        auth: instancia de ZohoAuth
+        module_name: nombre del módulo
+        fields: lista de campos
+        since: si se pasa, solo extrae registros modificados después de esta fecha
+
+    Returns:
+        list: todos los registros del módulo
+    """
+    all_records = []
+    page = 1
+    has_more = True
+    start_time = datetime.now()
+    
+    while has_more:
+        registros,mas_paginas,_token = request_with_backoff(
+            lambda:fetch_page(auth, module_name=module_name, fields=fields,page=page)
+            )
+        all_records.extend(registros)
+        logger.info(f"{module_name} página {page} | {len(registros)} registros | {len(all_records)} acumulados")
+        page+=1
+        has_more= mas_paginas
+        return all_records
