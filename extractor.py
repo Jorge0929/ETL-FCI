@@ -2,6 +2,9 @@ import time
 import random
 import logging
 import requests
+import json 
+import os
+
 from datetime import datetime
 
 # Importar la clase ZohoAuth de mi archivo auth
@@ -146,17 +149,134 @@ def extract_module(auth, module_name, fields, since=None):
     Returns:
         list: todos los registros del módulo
     """
-    all_records = []
-    page = 1
+
+    #Verificar que la carpeta exista 
+    os.makedirs("checkpoints", exist_ok=True)
+    checkpoint_file = f"checkpoints/{module_name}.json"
+
+    #Validar si existe un checkpoint antes
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, "r") as f:
+            estado = json.load(f)
+        #Tomar la pagina y los registros del checkpoint
+        page = estado["page"]
+        all_records = estado["records"]
+        logger.info(f"{module_name}: reanudando desde página {page} con {len(all_records)} registros previos")
+    else:
+        all_records = []
+        page = 1
+        #Loggear el inicio de la extracción
+        logger.info(f"Iniciando extracción de {module_name}...")
+        if since is not None:
+            logger.info(f"Modo Incremental desde {since}")
+        else:
+            logger.info("Modo Full refresh")
+    #Asignar la variable y el tiempo de inicio
     has_more = True
     start_time = datetime.now()
-    
+    paginas_procesadas=0
     while has_more:
+        #Jalar registros
         registros,mas_paginas,_token = request_with_backoff(
             lambda:fetch_page(auth, module_name=module_name, fields=fields,page=page)
-            )
-        all_records.extend(registros)
+        )
+        all_records.extend(registros) #Agregar nuevos registros
+
+        #Guardar la pagina y los records de este intento
+        estado = {"page": page, "records": all_records}
+        with open(checkpoint_file, "w") as f:
+            json.dump(estado, f)
+        
         logger.info(f"{module_name} página {page} | {len(registros)} registros | {len(all_records)} acumulados")
+
+        paginas_procesadas+=1
         page+=1
         has_more= mas_paginas
-        return all_records
+    
+    duracion = (datetime.now() - start_time).total_seconds()
+    logger.info(f"{module_name} completado | {len(all_records)} registros | {paginas_procesadas} páginas | {duracion:.1f}s")
+
+    #Eliminar el checkpoint si la extracción es un exito
+    if os.path.exists(checkpoint_file):
+        os.remove(checkpoint_file)
+    return all_records
+
+#Probar el modulo
+if __name__ == "__main__":
+    auth = ZohoAuth()
+    registros = extract_module(
+        auth,
+        "Agenda_acompa_amiento",
+        ["Name", "Raz_n_social_de_la_empresa", "Empresa"]
+    )
+    print(f"Total: {len(registros)} registros")
+
+# =============================================================================
+# FUNCIÓN PRINCIPAL — ORQUESTA TODO
+# =============================================================================
+
+
+def run_extraction(since=None):
+    """
+    Ejecuta la extracción completa de ambos proyectos.
+
+    Args:
+        since: datetime ISO string para modo incremental, o None para full refresh
+    """
+    auth = ZohoAuth()
+
+    # TODO: Define la estructura de salida
+    # Los JSON se guardan en carpetas separadas por proyecto:
+    #   output/colsubsidio/Registro_empresas.json
+    #   output/colsubsidio/Diagn_stico.json
+    #   output/cuidarte/Contactabilidad_CC.json
+    #   output/cuidarte/Colocaci_n_CC.json
+    # Investiga: os.makedirs("output/colsubsidio", exist_ok=True)
+
+    projects = {
+        "colsubsidio": MODULES_COLSUBSIDIO,
+        "cuidarte": MODULES_CUIDARTE,
+    }
+
+    # TODO: Recorre cada proyecto y cada módulo
+    # for project_name, modules in projects.items():
+    #     for module_name, fields in modules.items():
+    #         1. Loggea: "Extrayendo {project_name}/{module_name}..."
+    #         2. Llama a extract_module()
+    #         3. Guarda el resultado como JSON en output/{project_name}/{module_name}.json
+    #         4. Loggea: "{module_name}: {len(records)} registros extraídos"
+    #
+    # Pregunta: ¿qué pasa si un módulo falla?
+    # ¿Se detiene todo el pipeline o continúa con el siguiente módulo?
+    # Piensa en el impacto: si Diagn_stico falla pero Registro_empresas está OK,
+    # ¿el dashboard de Colsubsidio puede funcionar parcialmente?
+    # ¿Es mejor tener datos parciales o cero datos?
+    # Tu decisión aquí determina si usas try/except dentro del loop o fuera.
+
+    pass
+
+
+# =============================================================================
+# PUNTO DE ENTRADA
+# =============================================================================
+#if __name__ == "__main__":
+    # TODO: Decide cómo manejar el argumento "since"
+    # Opción 1: argparse para pasar --since "2025-01-01T00:00:00Z"
+    # Opción 2: leer desde un archivo "last_run.txt" que se actualiza automáticamente
+    # Opción 3: variable de entorno LAST_RUN_TIMESTAMP
+    #
+    # Para desarrollo, usa None (full refresh).
+    # Para producción (GitHub Actions), usa la opción que elijas.
+    #
+    # Pregunta: ¿dónde se guarda la fecha de la última ejecución exitosa?
+    # Si se guarda en un archivo local, ¿ese archivo existe en GitHub Actions?
+    # (No — cada ejecución de Actions es un runner nuevo sin estado previo)
+    # Entonces, ¿dónde lo guardas? Piensa en BigQuery, GitHub artifacts, o
+    # la tabla pipeline_metadata que vas a crear en la Fase 4.
+
+    #run_extraction(since=None)
+
+auth = ZohoAuth()
+registros = extract_module(auth, "Participantes_Bootcamps", 
+                           ["Name", "Empresa", "Estado_del_bootcamp"])
+print(f"Total: {len(registros)} registros")

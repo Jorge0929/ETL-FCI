@@ -27,3 +27,6 @@ TestResults.xml
 test_auth.py
 #CACHE
 __pycache__/
+#Carpeta de checkpoints
+checkpoints/
+output/
