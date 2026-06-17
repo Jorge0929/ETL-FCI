@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from extractor import fetch_page
+from extractor import fetch_page, run_extraction
 
 
 # =============================================================================
@@ -9,7 +9,7 @@ from extractor import fetch_page
 def make_auth():
     """Crea un auth falso que no toca .env ni Zoho."""
     auth = MagicMock()
-    auth.get_header.return_value = {"Authorization": "Zoho-oauthtoken fake_token"}
+    auth.renew_token.return_value = {"Authorization": "Zoho-oauthtoken fake_token"}
     return auth
 
 def make_response(status_code, json_body=None, headers=None):
@@ -101,7 +101,7 @@ def test_fetch_page_401_renueva_token_y_reintenta():
     """
     Primera llamada devuelve 401.
     Segunda llamada (después de renovar token) devuelve 200.
-    Verifica que auth.renew_token() fue llamado exactamente una vez.
+    Verifica que get_access_token fue llamado exactamente una vez.
     """
     response_401 = make_response(401)
     response_200 = make_response(200, json_body={
@@ -117,7 +117,7 @@ def test_fetch_page_401_renueva_token_y_reintenta():
         registros, mas_registros, token = fetch_page(auth, MODULE, FIELDS, page=1)
 
     assert registros == [{"Name": "Empresa A"}]
-    auth.renew_token.assert_called_once()   # verificá que renovó exactamente una vez
+    auth.get_access_token.assert_called_once()   # verificá que renovó exactamente una vez
     print("✓ test_fetch_page_401_renueva_token_y_reintenta pasó")
 
 
@@ -136,7 +136,24 @@ def test_fetch_page_401_persistente_lanza_excepcion():
             assert "401" in str(e)
             print("✓ test_fetch_page_401_persistente_lanza_excepcion pasó")
 
+# =============================================================================
+# TEST 404 —  Modulo Invalido
+# =============================================================================
 
+def test_fetch_page_404_lanza_excepcion_inmediata():
+    response = make_response(404, json_body={
+        "code": "INVALID_MODULE",
+        "message": "The module name given is invalid"
+    })
+
+    with patch("extractor.requests.get", return_value=response):
+        try:
+            fetch_page(make_auth(), MODULE, FIELDS, page=1)
+            assert False, "Debería haber lanzado excepción"
+        except Exception as e:
+            assert "404" in str(e)
+            assert "INVALID_MODULE" in str(e)
+            print("✓ test_fetch_page_404_lanza_excepcion_inmediata pasó")
 # =============================================================================
 # TEST 429 — rate limit con y sin Retry-After
 # =============================================================================
@@ -243,6 +260,30 @@ def test_fetch_page_500_lanza_para_backoff():
 
 
 # =============================================================================
+# TEST — Proyecto inválido en run_extraction
+# =============================================================================
+
+def test_run_extraction_proyecto_invalido():
+    try:
+        run_extraction(projects=["proyecto_inexistente"])
+        assert False, "Debería haber lanzado ValueError"
+    except ValueError as e:
+        assert "no existe" in str(e)
+        print("✓ test_run_extraction_proyecto_invalido pasó")
+
+# =============================================================================
+# TEST — Límite de 50 campos en fetch_page
+# =============================================================================
+
+def test_fetch_page_demasiados_campos():
+    fields_61 = [f"Campo_{i}" for i in range(61)]   # 61 campos, supera el límite
+    try:
+        fetch_page(make_auth(), MODULE, fields_61, page=1)
+        assert False, "Debería haber lanzado ValueError"
+    except ValueError as e:
+        assert "50" in str(e)
+        print("✓ test_fetch_page_demasiados_campos pasó")
+# =============================================================================
 # PUNTO DE ENTRADA
 # =============================================================================
 
@@ -253,9 +294,12 @@ if __name__ == "__main__":
     test_fetch_page_304_sin_cambios()
     test_fetch_page_401_renueva_token_y_reintenta()
     test_fetch_page_401_persistente_lanza_excepcion()
+    test_fetch_page_404_lanza_excepcion_inmediata() 
     test_fetch_page_429_con_retry_after()
     test_fetch_page_429_sin_retry_after()
     test_fetch_page_400_lanza_excepcion_inmediata()
     test_fetch_page_403_lanza_excepcion_inmediata()
     test_fetch_page_500_lanza_para_backoff()
+    test_run_extraction_proyecto_invalido()
+    test_fetch_page_demasiados_campos()
     print("\n✓ Todos los tests pasaron")

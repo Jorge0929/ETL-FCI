@@ -68,6 +68,10 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     Returns:
         tuple: (lista_de_registros, hay_mas_paginas, next_page_token)
     """
+    if len(fields) > 50:
+        raise ValueError(
+            f"{module_name} tiene {len(fields)} campos — Zoho permite máximo 50"
+        )
 
     # URL base de Zoho CRM API v8:
     base_url = f"https://www.zohoapis.com/crm/v8/{module_name}"
@@ -212,18 +216,14 @@ def run_extraction(projects=None,since=None):
         projects: lista de proyectos a extraer (ej: ["colsubsidio"]), o None para todos
         since: datetime ISO string para modo incremental, o None para full refresh
     """
-    auth = ZohoAuth() #Inicializar la clase zohoauth
-    os.makedirs("output", exist_ok=True) #Crer carpeta de salidas
-
     #Listar todos los proyectos de config
     todos_los_proyectos = {
         "colsubsidio": MODULES_COLSUBSIDIO,
         "cuidarte": MODULES_CUIDARTE,
-    }
-
+        }
     #Si se escogio el proyecto validar si existe y extraerlo, si no extraer todos los proyectps
     if projects is None:
-            projects = todos_los_proyectos
+        projects = todos_los_proyectos
     else:
         for nombre in projects:
             if nombre not in todos_los_proyectos:
@@ -232,6 +232,9 @@ def run_extraction(projects=None,since=None):
                     f"Proyecto '{nombre}' no existe. Proyectos disponibles: {disponibles}"
                 )
         projects = {nombre: todos_los_proyectos[nombre] for nombre in projects}
+    
+    auth = ZohoAuth() #Inicializar la clase zohoauth
+    os.makedirs("output", exist_ok=True) #Crer carpeta de salidas
 
     #Recorre cada proyecto y cada módulo
     for project_name, modules in projects.items():
