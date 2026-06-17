@@ -10,6 +10,9 @@ from datetime import datetime
 # Importar la clase ZohoAuth de mi archivo auth
 from auth import ZohoAuth
 
+#Importat modulos
+from config import MODULES_COLSUBSIDIO, MODULES_CUIDARTE
+
 #Configurar el logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',)
 
@@ -201,59 +204,53 @@ def extract_module(auth, module_name, fields, since=None):
         os.remove(checkpoint_file)
     return all_records
 
-#Probar el modulo
-if __name__ == "__main__":
-    auth = ZohoAuth()
-    registros = extract_module(
-        auth,
-        "Agenda_acompa_amiento",
-        ["Name", "Raz_n_social_de_la_empresa", "Empresa"]
-    )
-    print(f"Total: {len(registros)} registros")
-
-# =============================================================================
-# FUNCIÓN PRINCIPAL — ORQUESTA TODO
-# =============================================================================
-
-
-def run_extraction(since=None):
+def run_extraction(projects=None,since=None):
     """
-    Ejecuta la extracción completa de ambos proyectos.
+    Ejecuta la extracción de los proyectos seleccionados.
 
     Args:
+        projects: lista de proyectos a extraer (ej: ["colsubsidio"]), o None para todos
         since: datetime ISO string para modo incremental, o None para full refresh
     """
-    auth = ZohoAuth()
+    auth = ZohoAuth() #Inicializar la clase zohoauth
+    os.makedirs("output", exist_ok=True) #Crer carpeta de salidas
 
-    # TODO: Define la estructura de salida
-    # Los JSON se guardan en carpetas separadas por proyecto:
-    #   output/colsubsidio/Registro_empresas.json
-    #   output/colsubsidio/Diagn_stico.json
-    #   output/cuidarte/Contactabilidad_CC.json
-    #   output/cuidarte/Colocaci_n_CC.json
-    # Investiga: os.makedirs("output/colsubsidio", exist_ok=True)
-
-    projects = {
+    #Listar todos los proyectos de config
+    todos_los_proyectos = {
         "colsubsidio": MODULES_COLSUBSIDIO,
         "cuidarte": MODULES_CUIDARTE,
     }
 
-    # TODO: Recorre cada proyecto y cada módulo
-    # for project_name, modules in projects.items():
-    #     for module_name, fields in modules.items():
-    #         1. Loggea: "Extrayendo {project_name}/{module_name}..."
-    #         2. Llama a extract_module()
-    #         3. Guarda el resultado como JSON en output/{project_name}/{module_name}.json
-    #         4. Loggea: "{module_name}: {len(records)} registros extraídos"
-    #
-    # Pregunta: ¿qué pasa si un módulo falla?
-    # ¿Se detiene todo el pipeline o continúa con el siguiente módulo?
-    # Piensa en el impacto: si Diagn_stico falla pero Registro_empresas está OK,
-    # ¿el dashboard de Colsubsidio puede funcionar parcialmente?
-    # ¿Es mejor tener datos parciales o cero datos?
-    # Tu decisión aquí determina si usas try/except dentro del loop o fuera.
+    #Si se escogio el proyecto validar si existe y extraerlo, si no extraer todos los proyectps
+    if projects is None:
+            projects = todos_los_proyectos
+    else:
+        for nombre in projects:
+            if nombre not in todos_los_proyectos:
+                disponibles = list(todos_los_proyectos.keys())
+                raise ValueError(
+                    f"Proyecto '{nombre}' no existe. Proyectos disponibles: {disponibles}"
+                )
+        projects = {nombre: todos_los_proyectos[nombre] for nombre in projects}
 
-    pass
+    #Recorre cada proyecto y cada módulo
+    for project_name, modules in projects.items():
+        os.makedirs(f"output/{project_name}", exist_ok=True)
+        logger.info(f"Extrayendo proyecto {project_name}...")
+        for module_name, fields in modules.items():
+            try:
+                registros = extract_module(auth, module_name, fields)
+                ruta_registros = f"output/{project_name}/{module_name}.json"
+                with open(ruta_registros, "w") as f:
+                    json.dump(registros, f)
+                logger.info(f"{module_name}: {len(registros)} registros extraídos")
+            except Exception as e:
+                logger.error(f"{module_name} FALLÓ — no se extrajo: {e}")
+                continue
+
+#Probar el modulo
+if __name__ == "__main__":
+    run_extraction(projects=["colsubsidio"])
 
 
 # =============================================================================
@@ -275,8 +272,3 @@ def run_extraction(since=None):
     # la tabla pipeline_metadata que vas a crear en la Fase 4.
 
     #run_extraction(since=None)
-
-auth = ZohoAuth()
-registros = extract_module(auth, "Participantes_Bootcamps", 
-                           ["Name", "Empresa", "Estado_del_bootcamp"])
-print(f"Total: {len(registros)} registros")
