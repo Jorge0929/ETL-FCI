@@ -108,7 +108,7 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     # 400/403 — errores no recuperables, no reintenta. 
     # 400: bug en el request (campos, módulo inválido)
     # 403: sin permisos en Zoho — contactar administrador
-    elif response.status_code in (400,403):
+    elif response.status_code in (400,403,404):
         res_json = response.json()
         codigo_error = res_json.get("code", "UNKNOWN")
         mensaje_error = res_json.get("message", "Sin mensaje")
@@ -251,24 +251,3 @@ def run_extraction(projects=None,since=None):
 #Probar el modulo
 if __name__ == "__main__":
     run_extraction(projects=["colsubsidio"])
-
-
-# =============================================================================
-# PUNTO DE ENTRADA
-# =============================================================================
-#if __name__ == "__main__":
-    # TODO: Decide cómo manejar el argumento "since"
-    # Opción 1: argparse para pasar --since "2025-01-01T00:00:00Z"
-    # Opción 2: leer desde un archivo "last_run.txt" que se actualiza automáticamente
-    # Opción 3: variable de entorno LAST_RUN_TIMESTAMP
-    #
-    # Para desarrollo, usa None (full refresh).
-    # Para producción (GitHub Actions), usa la opción que elijas.
-    #
-    # Pregunta: ¿dónde se guarda la fecha de la última ejecución exitosa?
-    # Si se guarda en un archivo local, ¿ese archivo existe en GitHub Actions?
-    # (No — cada ejecución de Actions es un runner nuevo sin estado previo)
-    # Entonces, ¿dónde lo guardas? Piensa en BigQuery, GitHub artifacts, o
-    # la tabla pipeline_metadata que vas a crear en la Fase 4.
-
-    #run_extraction(since=None)
