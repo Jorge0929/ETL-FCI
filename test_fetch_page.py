@@ -283,6 +283,34 @@ def test_fetch_page_demasiados_campos():
     except ValueError as e:
         assert "50" in str(e)
         print("✓ test_fetch_page_demasiados_campos pasó")
+
+# =============================================================================
+# TEST — Probar el parametro since en el header
+# =============================================================================
+
+def test_since_se_propaga_hasta_el_header():
+    """
+    Verifica que el since pasado a run_extraction llega a fetch_page
+    como header If-Modified-Since.
+    """
+    since_fecha = "2025-06-10T00:00:00Z"
+
+    # Respuesta vacía — solo nos interesa inspeccionar los headers del request
+    response = make_response(200, json_body={
+        "data": [],
+        "info": {"more_records": False, "next_page_token": None}
+    })
+
+    with patch("extractor.requests.get", return_value=response) as mock_get:
+        fetch_page(make_auth(), MODULE, FIELDS, page=1, since=since_fecha)
+
+    # mock_get.call_args captura los argumentos con que se llamó requests.get
+    _, kwargs = mock_get.call_args
+    headers_enviados = kwargs["headers"]
+
+    assert "If-Modified-Since" in headers_enviados
+    assert headers_enviados["If-Modified-Since"] == since_fecha
+    print("✓ test_since_se_propaga_hasta_el_header pasó")
 # =============================================================================
 # PUNTO DE ENTRADA
 # =============================================================================
@@ -302,4 +330,5 @@ if __name__ == "__main__":
     test_fetch_page_500_lanza_para_backoff()
     test_run_extraction_proyecto_invalido()
     test_fetch_page_demasiados_campos()
+    test_since_se_propaga_hasta_el_header()
     print("\n✓ Todos los tests pasaron")

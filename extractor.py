@@ -242,7 +242,7 @@ def run_extraction(projects=None,since=None):
         logger.info(f"Extrayendo proyecto {project_name}...")
         for module_name, fields in modules.items():
             try:
-                registros = extract_module(auth, module_name, fields)
+                registros = extract_module(auth, module_name, fields, since=since)
                 ruta_registros = f"output/{project_name}/{module_name}.json"
                 with open(ruta_registros, "w") as f:
                     json.dump(registros, f)
