@@ -9,7 +9,7 @@ from extractor import fetch_page, run_extraction
 def make_auth():
     """Crea un auth falso que no toca .env ni Zoho."""
     auth = MagicMock()
-    auth.renew_token.return_value = {"Authorization": "Zoho-oauthtoken fake_token"}
+    auth.get_header.return_value = {"Authorization": "Zoho-oauthtoken fake_token"}
     return auth
 
 def make_response(status_code, json_body=None, headers=None):

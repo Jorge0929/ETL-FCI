@@ -82,7 +82,7 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
     "per_page": per_page
     }
 
-    headers = auth.renew_token()
+    headers = auth.get_header()
 
     if since is not None:
         parametros["sort_by"] = "Modified_Time"

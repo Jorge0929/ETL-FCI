@@ -49,7 +49,7 @@ class ZohoAuth:
         return self.access_token
 
 
-    def renew_token(self):
+    def get_header(self):
         #Obtener el tiempo actual
         current_time = time.time()
 
