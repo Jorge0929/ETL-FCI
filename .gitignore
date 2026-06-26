@@ -30,3 +30,5 @@ __pycache__/
 #Carpeta de checkpoints
 checkpoints/
 output/
+#GCP credentials
+gcp-credentials.json
