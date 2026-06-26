@@ -73,11 +73,15 @@ def fetch_page(auth, module_name, fields, page, per_page=200, since=None, _retri
             f"{module_name} tiene {len(fields)} campos — Zoho permite máximo 50"
         )
 
+    fields_con_sistema = list(fields)
+    if "Modified_Time" not in fields_con_sistema:
+        fields_con_sistema.append("Modified_Time")
+
     # URL base de Zoho CRM API v8:
     base_url = f"https://www.zohoapis.com/crm/v8/{module_name}"
 
     parametros = {
-    "fields": ",".join(fields),
+    "fields":",".join(f.strip() for f in fields_con_sistema),
     "page": page,
     "per_page": per_page
     }
