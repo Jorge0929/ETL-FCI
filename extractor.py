@@ -13,6 +13,9 @@ from auth import ZohoAuth
 #Importat modulos
 from config import MODULES_COLSUBSIDIO, MODULES_CUIDARTE
 
+from metadata import get_watermark
+from loader import get_client
+
 #Configurar el logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',)
 
@@ -240,13 +243,16 @@ def run_extraction(projects=None,since=None):
     auth = ZohoAuth() #Inicializar la clase zohoauth
     os.makedirs("output", exist_ok=True) #Crer carpeta de salidas
 
+    client = get_client()
+
     #Recorre cada proyecto y cada módulo
     for project_name, modules in projects.items():
         os.makedirs(f"output/{project_name}", exist_ok=True)
         logger.info(f"Extrayendo proyecto {project_name}...")
         for module_name, fields in modules.items():
             try:
-                registros = extract_module(auth, module_name, fields, since=since)
+                module_since = since or get_watermark(client, project_name, module_name)
+                registros = extract_module(auth, module_name, fields, since=module_since)
                 ruta_registros = f"output/{project_name}/{module_name}.json"
                 with open(ruta_registros, "w") as f:
                     json.dump(registros, f)
