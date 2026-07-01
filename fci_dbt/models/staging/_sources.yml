@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: zoho_raw
+    database: zoho-bq-pipeline-492116
+    schema: colsubsidio_ruta_empresas
+    tables:
+      - name: registro_empresas
+      - name: diagnostico
+      - name: asesoria
